@@ -26,10 +26,7 @@ enum indexName {box, pixel};
 #define PRINT_ITEM(x) printItem (x, #x)
 
 
-
-
-
-const byte notePitches[][8] = {
+const byte notePitches[][8] = {  //some test notes
   {C3, D3, E3, F3, G3, A3, B3, B4},
   {C4, D4, E4, F4, G4, A4, B4, B5}
 };
@@ -44,7 +41,7 @@ int lastInByte = 0;
 
 void setup() {
   
-  pinMode(5,OUTPUT);   //receive / transmit pin... pull low to receive
+  pinMode(5,OUTPUT);   //receive / transmit pin... pull low to receive for Master
   digitalWrite(5, LOW);
   
   // initialize both serial ports:
@@ -52,14 +49,13 @@ void setup() {
   Serial1.begin(9600);
 }
 
-
 void loop() {
 
-  serialEvent();
+  serialEvent(); //RS485 incoming
 
   if (newInput && strlen (inputSentence))
   {
-    int tokenIndex = 0;
+    int tokenIndex = 0
     //Serial.println (inputSentence); // tell 'em what you've got
     tokens [tokenIndex] = strtok (inputSentence, delimiters);
     while ((tokenIndex < MAX_TOKENS - 1) && tokens [tokenIndex])
@@ -78,16 +74,7 @@ void loop() {
     Serial.println(pixelNumber);
     Serial.println(notePitches[boxNumber][pixelNumber]);
 
-    noteOn(1, notePitches[boxNumber][pixelNumber], intensity);
-
-  
-
-
-   
-
-   //Serial.println(tokens[0]);
-   //Serial.println(tokens[1]);
-
+    noteOn(1, notePitches[boxNumber][pixelNumber], intensity); //SEND MIDI based on box number
 
    // reset things for the next lot.
    newInput = false;
