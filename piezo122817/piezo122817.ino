@@ -1,6 +1,6 @@
 //
 // NOTES:
-// Box 2 numbers  5,6,7 are super sensative
+// Box 2 numbers  5,6,7 are super sensative. 
 
 
 #define boxNumber 2
