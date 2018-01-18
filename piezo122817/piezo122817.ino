@@ -1,6 +1,9 @@
 //
+// NOTES:
+// Box 2 numbers  5,6,7 are super sensative
 
-#define boxNumber 1
+
+#define boxNumber 2
 
 #include "Keyboard.h"
 
@@ -8,10 +11,24 @@
 #define PIN 2
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_GRB + NEO_KHZ800);
 
-int box[][8] = {
+int box[][8] = {      //this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
   {3,0,7,9,6,8,2,1}, //box 0 
-  {1,0,2,8,9,7,3,6}  //box 1
+  {1,0,2,8,9,7,3,6},  //box 1
+  {9,7,1,0,2,8,6,3},  //box 2
+  {9,1,0,2,8,7,3,6}  //box 3
 }; //box 1
+
+
+int hitThresholdAfterDelay[][8] = {      //calibration if needed.. default was 20 
+  {20,20,20,20,20,20,20,20}, //box 0 
+  {20,20,20,20,20,20,20,20},  //box 1
+  {20,20,20,20,20,70,70,50},  //box 2  - boxes 5,6,7 were extra sensative...
+  {20,20,20,20,20,20,20,20}  //box 3
+}; //box 1
+
+int arrayDelayIncrement[8] = {  //callibration if needed ... default was 58 boxes 2 and 3 were sensitive
+  58,58,70,65,58,58,58,58
+};
 
 
 
@@ -52,7 +69,7 @@ void setup() {
 }
 
 
-const int sizeRolling = 60;
+const int sizeRolling = 100; ///this needs to be high to accomidate all the arrayDelayIncrement[boxNumber].... low is 58... high is?
 int rollingWave[sizeRolling];
 int incrementRolling = 2;
 
@@ -213,7 +230,7 @@ void addToArray(int sensorValue)
 {
   rollingWave[incrementRolling] = sensorValue;      //keeps track of thrown or dropped
   incrementRolling++;
-  if(incrementRolling == sizeRolling)
+  if(incrementRolling == arrayDelayIncrement[boxNumber]+2)
   {
     
     incrementRolling = 0;
@@ -224,8 +241,8 @@ void addToArray(int sensorValue)
 //      Serial.print(", ");
 //      Serial.println(rollingWave[i]);
 //    }
-    
-    if(rollingWave[58] > 20)
+
+    if(rollingWave[arrayDelayIncrement[boxNumber]] > hitThresholdAfterDelay[boxNumber][captureData])
     {
       
       Serial1.print(boxNumber + 10);
@@ -235,6 +252,7 @@ void addToArray(int sensorValue)
       Serial.print(boxNumber + 10);
       Serial.print(",");
       Serial.println(captureData);
+      //Serial.println(rollingWave[arrayDelayIncrement[boxNumber]]);
       
 
       colorWipe(Wheel(random(0,254),captureData),ledArray[captureData]);
