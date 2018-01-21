@@ -1,13 +1,6 @@
 //
 // NOTES:
-// Change Box Cluster Number to 0-15... each station is made up of 2 box clusters
-// 0,1
-// 2,3
-// 4,5 and so on to 10,11
-// even number box clusters are on the left, odd number on the right
-// individual boxes within the box clusters start top left as 0 through bottom left as 7 zig zag
-//  
-// Box Cluster Number -  2 numbers  5,6,7 are super sensative. 
+// Box 2 numbers  5,6,7 are super sensative. 
 
 
 #define boxClusterNumber 4

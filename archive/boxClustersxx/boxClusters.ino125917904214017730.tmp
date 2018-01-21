@@ -1,16 +1,9 @@
 //
 // NOTES:
-// Change Box Cluster Number to 0-15... each station is made up of 2 box clusters
-// 0,1
-// 2,3
-// 4,5 and so on to 10,11
-// even number box clusters are on the left, odd number on the right
-// individual boxes within the box clusters start top left as 0 through bottom left as 7 zig zag
-//  
-// Box Cluster Number -  2 numbers  5,6,7 are super sensative. 
+// Box 2 numbers  5,6,7 are super sensative. 
 
 
-#define boxClusterNumber 4
+#define boxNumber 4
 
 #include "Keyboard.h"
 
@@ -86,7 +79,7 @@ void setup() {
 }
 
 
-const int sizeRolling = 100; ///this needs to be high to accomidate all the arrayDelayIncrement[boxClusterNumber].... low is 58... high is?
+const int sizeRolling = 100; ///this needs to be high to accomidate all the arrayDelayIncrement[boxNumber].... low is 58... high is?
 int rollingWave[sizeRolling];
 int incrementRolling = 2;
 
@@ -103,7 +96,7 @@ void loop() {
   if(captureData > 8)
   {
     currentTime = millis();
-    sensorValue = analogRead(box[boxClusterNumber][0]); //
+    sensorValue = analogRead(box[boxNumber][0]); //
     if(sensorValue > hitThreshold)//
     {
       if(currentTime - piezoLastHit[0] > waitBetweenHits)
@@ -114,7 +107,7 @@ void loop() {
         return;
       }
     }
-    sensorValue = analogRead(box[boxClusterNumber][1]); //
+    sensorValue = analogRead(box[boxNumber][1]); //
     if(sensorValue > hitThreshold)//
     {
       if(currentTime - piezoLastHit[1] > waitBetweenHits)
@@ -126,7 +119,7 @@ void loop() {
       }
     }
 
-    sensorValue = analogRead(box[boxClusterNumber][2]); //
+    sensorValue = analogRead(box[boxNumber][2]); //
     if(sensorValue > hitThreshold)//
     {
       if(currentTime - piezoLastHit[2] > waitBetweenHits)
@@ -138,7 +131,7 @@ void loop() {
       }
     }
 
-    sensorValue = analogRead(box[boxClusterNumber][3]); //
+    sensorValue = analogRead(box[boxNumber][3]); //
     if(sensorValue > hitThreshold)//
     {
       if(currentTime - piezoLastHit[3] > waitBetweenHits)
@@ -150,7 +143,7 @@ void loop() {
       }
     }
 
-    sensorValue = analogRead(box[boxClusterNumber][4]); //
+    sensorValue = analogRead(box[boxNumber][4]); //
     if(sensorValue > hitThreshold)//
     {
       if(currentTime - piezoLastHit[4] > waitBetweenHits)
@@ -162,7 +155,7 @@ void loop() {
       }
     }
 
-    sensorValue = analogRead(box[boxClusterNumber][5]); //
+    sensorValue = analogRead(box[boxNumber][5]); //
     if(sensorValue > hitThreshold)//
     {
       if(currentTime - piezoLastHit[5] > waitBetweenHits)
@@ -174,7 +167,7 @@ void loop() {
       }
     }
 
-    sensorValue = analogRead(box[boxClusterNumber][6]); //
+    sensorValue = analogRead(box[boxNumber][6]); //
     if(sensorValue > hitThreshold)//
     {
       if(currentTime - piezoLastHit[6] > waitBetweenHits)
@@ -186,7 +179,7 @@ void loop() {
       }
     }
 
-    sensorValue = analogRead(box[boxClusterNumber][7]); //
+    sensorValue = analogRead(box[boxNumber][7]); //
     if(sensorValue > hitThreshold)//
     {
       if(currentTime - piezoLastHit[7] > waitBetweenHits)
@@ -207,35 +200,35 @@ void loop() {
     switch (captureData) 
     {
       case 0:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
+        sensorValue = analogRead(box[boxNumber][captureData]); //
         addToArray(sensorValue);
         break;
       case 1:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
+        sensorValue = analogRead(box[boxNumber][captureData]); //
         addToArray(sensorValue);
         break;
       case 2:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
+        sensorValue = analogRead(box[boxNumber][captureData]); //
         addToArray(sensorValue);
         break;
       case 3:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
+        sensorValue = analogRead(box[boxNumber][captureData]); //
         addToArray(sensorValue);
         break;
       case 4:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
+        sensorValue = analogRead(box[boxNumber][captureData]); //
         addToArray(sensorValue);
         break;
       case 5:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
+        sensorValue = analogRead(box[boxNumber][captureData]); //
         addToArray(sensorValue);
         break;
       case 6:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
+        sensorValue = analogRead(box[boxNumber][captureData]); //
         addToArray(sensorValue);
         break;
       case 7:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
+        sensorValue = analogRead(box[boxNumber][captureData]); //
         addToArray(sensorValue);
         break;
     }
@@ -247,7 +240,7 @@ void addToArray(int sensorValue)
 {
   rollingWave[incrementRolling] = sensorValue;      //keeps track of thrown or dropped
   incrementRolling++;
-  if(incrementRolling == arrayDelayIncrement[boxClusterNumber]+2)
+  if(incrementRolling == arrayDelayIncrement[boxNumber]+2)
   {
     
     incrementRolling = 0;
@@ -259,17 +252,17 @@ void addToArray(int sensorValue)
 //      Serial.println(rollingWave[i]);
 //    }
 
-    if(rollingWave[arrayDelayIncrement[boxClusterNumber]] > hitThresholdAfterDelay[boxClusterNumber][captureData])
+    if(rollingWave[arrayDelayIncrement[boxNumber]] > hitThresholdAfterDelay[boxNumber][captureData])
     {
       
-      Serial1.print(boxClusterNumber + 10);
+      Serial1.print(boxNumber + 10);
       Serial1.print(",");
       Serial1.println(captureData);
 
-      Serial.print(boxClusterNumber + 10);
+      Serial.print(boxNumber + 10);
       Serial.print(",");
       Serial.println(captureData);
-      //Serial.println(rollingWave[arrayDelayIncrement[boxClusterNumber]]);
+      //Serial.println(rollingWave[arrayDelayIncrement[boxNumber]]);
       
 
       colorWipe(Wheel(random(0,254),captureData),ledArray[captureData]);
