@@ -5,6 +5,8 @@ TEENSY: Set USB type to Serial
 
 #include "PitchToNote.h"
 
+#define BAUD_RATE  (115200)
+
 const int MAX_LEN = 10;
 const char lineEnding = '\n'; // whatever marks the end of your input.
 char inputSentence [MAX_LEN + 1];
@@ -17,17 +19,8 @@ char* tokens [MAX_TOKENS + 1];
 enum indexName {box, pixel};
 #define PRINT_ITEM(x) printItem (x, #x)
 
-
-const byte notePitches[][8] = {  //some test notes
-  { 0,  1,  2,  3,  4,  5,  6,  7},
-  { 8,  9,  10, 11, 12, 13, 14, 15},
-  { 16, 17, 18, 19, 20, 21, 22, 23},
-  { 24, 25, 26, 27, 28, 29, 30, 31},
-  { 32, 33, 34, 35, 36, 37, 38, 39},
-  { 40, 41, 42, 43, 44, 45, 46, 47},
-  { 48, 49, 50, 51, 52, 53, 54, 55},
-  { 56, 57, 58, 59, 60, 61, 62, 63}
-};
+// Box->pitch order can be changed here:
+const byte notePitches[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 
 
 int inByte = 0;
@@ -39,8 +32,8 @@ void setup() {
   digitalWrite(5, LOW);
 
   // initialize both serial ports:
-  Serial.begin(115200);
-  Serial1.begin(115200);
+  Serial.begin(BAUD_RATE);
+  Serial1.begin(BAUD_RATE);
 }
 
 void loop() {
@@ -64,7 +57,7 @@ void loop() {
 
     int boxNumber = atoi(tokens[0]) - 10;
     int pixelNumber = atoi(tokens[1]);
-    byte pitch = notePitches[boxNumber][pixelNumber];
+    byte pitch = (boxNumber * 8) + notePitches[pixelNumber];
 
     Serial.println(boxNumber);
     Serial.println(pixelNumber);
@@ -107,6 +100,3 @@ void printItem (int index, char* name)
  Serial.print (F(" "));
  Serial.println (tokens [index]);
 }
-
-
-

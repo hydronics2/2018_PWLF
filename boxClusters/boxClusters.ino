@@ -6,20 +6,25 @@
 // 4,5 and so on to 10,11
 // even number box clusters are on the left, odd number on the right
 // individual boxes within the box clusters start top left as 0 through bottom left as 7 zig zag
-//  
-// Box Cluster Number -  2 numbers  5,6,7 are super sensative. 
+//
+// Box Cluster Number -  2 numbers  5,6,7 are super sensative.
 
-
-#define boxClusterNumber 4
+#define boxClusterNumber 5
 
 #include "Keyboard.h"
-
+#include <stdint.h>
 #include <Adafruit_NeoPixel.h>
+#include "Color.h"
+
 #define PIN 2
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_GRB + NEO_KHZ800);
+#define BAUD_RATE  (115200)
+
+#define randf()    (random(0xffffff) * (1.0f / 0xffffff))
+
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_RBG + NEO_KHZ800);
 
 int box[][8] = {      //this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
-  {3,0,7,9,6,8,2,1}, //box 0 
+  {3,0,7,9,6,8,2,1}, //box 0
   {1,0,2,8,9,7,3,6},  //box 1
   {9,7,1,0,2,8,6,3},  //box 2
   {9,1,0,2,8,7,3,6},  //box 3
@@ -27,31 +32,31 @@ int box[][8] = {      //this fixes all the piezo locations for each box. They we
   {6,7,8,2,3,9,1,0}  //box 5
 }; //box 1
 
+#define HT    (30)      // Default hit threshold
 
-int hitThresholdAfterDelay[][12] = {      //calibration if needed.. default was 20 
-  {20,20,20,20,20,20,20,20}, //box 0 
-  {20,20,20,20,20,20,20,20},  //box 1
-  {20,20,20,20,20,70,70,50},  //box 2  - boxes 5,6,7 were extra sensative...
-  {20,20,20,20,20,20,20,20},  //box 3
-  {20,20,20,20,20,20,20,20},  //box 4
-  {20,20,20,20,20,20,20,20},  //box 5
-  {20,20,20,20,20,20,20,20},  //box 6
-  {20,20,20,20,20,20,20,20},  //box 7
-  {20,20,20,20,20,20,20,20},  //box 8
-  {20,20,20,20,20,20,20,20},  //box 9
-  {20,20,20,20,20,20,20,20},  //box 10
-  {20,20,20,20,20,20,20,20}  //box 11
+int hitThresholdAfterDelay[][12] = {      //calibration if needed.. default was 20
+  {HT,HT,HT,HT,HT,HT,HT,HT}, //box 0
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 1
+  {HT,HT,HT,HT,HT,70,70,50},  //box 2  - boxes 5,6,7 were extra sensative...
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 3
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 4
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 5
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 6
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 7
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 8
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 9
+  {HT,HT,HT,HT,HT,HT,HT,HT},  //box 10
+  {HT,HT,HT,HT,HT,HT,HT,HT}  //box 11
 }; //box 1
 
-int arrayDelayIncrement[12] = {  //callibration if needed ... default was 58 boxes 2 and 3 were sensitive
-  58,58,70,65,58,58,58,58,58,58,58,58
+#define MM     (40)     // Default millis before measurement
+
+int millisBeforeMeasurement[12] = {  //callibration if needed ... default was 58 boxes 2 and 3 were sensitive
+  MM,MM,MM,MM,MM,MM,
+  MM,MM,MM,MM,MM,MM
 };
 
-
-
-int ledArray[]={0,2,4,6,8,10,12,14};
-
-char keyboard[] = {'m','n','b','v','a','s','d','f'};
+uint16_t ledArray[]={0,2,4,6,8,10,12,14};
 
 byte pixelColors[][3]={
   {0,0,0},
@@ -66,136 +71,72 @@ byte pixelColors[][3]={
 
 int sensorValue = 0;        // value read from the pot
 
+HSV hsvRandoms[8];
+float brights[8] = {0.0f};
+
 void setup() {
 
   pinMode(0, OUTPUT);
   digitalWrite(0,LOW);
 
   pinMode(5,OUTPUT);   //receive / transmit pin... pull high to send
-  digitalWrite(5, HIGH);
-  
-
- Serial.begin(9600);
- Serial1.begin(9600);
+  digitalWrite(5, LOW);
 
 
-  //Keyboard.begin();
+ Serial.begin(BAUD_RATE);
+ Serial1.begin(BAUD_RATE);
 
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 }
 
-
-const int sizeRolling = 100; ///this needs to be high to accomidate all the arrayDelayIncrement[boxClusterNumber].... low is 58... high is?
-int rollingWave[sizeRolling];
-int incrementRolling = 2;
-
 int captureData = 254;
-int hitThreshold = 30;
+const int hitThreshold = 30;
 
 long piezoLastHit[8];
 long currentTime = 0;
-int waitBetweenHits = 100;
+const int waitBetweenHits = 100;
 
+float cycle = 0.0f;
 
 void loop() {
+  long lastTime = currentTime;
+  currentTime = millis();
+
+  cycle += (currentTime - lastTime) / 1000.0f;
+
+  // For each box: Dim the colors according to the brights.
+  // Update each LED color.
+  for (uint8_t box = 0; box < 8; box++) {
+
+    /*
+    uint32_t c = dimColor(colors[box], brights[box]);
+    uint8_t r = (c & 0xff0000) >> 16;
+    uint8_t g = (c & 0x00ff00) >>  8;
+    uint8_t b = (c & 0x0000ff);
+    */
+
+    // Test
+    //RGB8 rgb8 = (RGB8){.r = 0, .g = 0, .b = brights[box] * 0xff};
+
+    RGB rgb = boxColorActive(boxClusterNumber, &hsvRandoms[box], brights[box], cycle);
+    RGB8 rgb8 = rgbToRGB8(rgb);
+
+    uint16_t stripNum = ledArray[box];
+    strip.setPixelColor(stripNum, rgb8.r, rgb8.g, rgb8.b);
+    strip.setPixelColor(stripNum + 1, rgb8.r, rgb8.g, rgb8.b);
+
+    // Decay brightness
+    brights[box] = max(0.0f, brights[box] - (1.0f / 2000.0f));
+  }
+
+  strip.show();
 
   if(captureData > 8)
   {
-    currentTime = millis();
-    sensorValue = analogRead(box[boxClusterNumber][0]); //
-    if(sensorValue > hitThreshold)//
-    {
-      if(currentTime - piezoLastHit[0] > waitBetweenHits)
-      {
-        piezoLastHit[0] = currentTime;
-        captureData = 0;
-        addToArray(sensorValue);
-        return;
-      }
-    }
-    sensorValue = analogRead(box[boxClusterNumber][1]); //
-    if(sensorValue > hitThreshold)//
-    {
-      if(currentTime - piezoLastHit[1] > waitBetweenHits)
-      {
-        piezoLastHit[1] = currentTime;
-        captureData = 1;
-        addToArray(sensorValue);
-        return;
-      }
-    }
-
-    sensorValue = analogRead(box[boxClusterNumber][2]); //
-    if(sensorValue > hitThreshold)//
-    {
-      if(currentTime - piezoLastHit[2] > waitBetweenHits)
-      {
-        piezoLastHit[2] = currentTime;
-        captureData = 2;
-        addToArray(sensorValue);
-        return;
-      }
-    }
-
-    sensorValue = analogRead(box[boxClusterNumber][3]); //
-    if(sensorValue > hitThreshold)//
-    {
-      if(currentTime - piezoLastHit[3] > waitBetweenHits)
-      {
-        piezoLastHit[3] = currentTime;
-        captureData = 3;
-        addToArray(sensorValue);
-        return;
-      }
-    }
-
-    sensorValue = analogRead(box[boxClusterNumber][4]); //
-    if(sensorValue > hitThreshold)//
-    {
-      if(currentTime - piezoLastHit[4] > waitBetweenHits)
-      {
-        piezoLastHit[4] = currentTime;
-        captureData = 4;
-        addToArray(sensorValue);
-      return;
-      }
-    }
-
-    sensorValue = analogRead(box[boxClusterNumber][5]); //
-    if(sensorValue > hitThreshold)//
-    {
-      if(currentTime - piezoLastHit[5] > waitBetweenHits)
-      {
-        piezoLastHit[5] = currentTime;
-        captureData = 5;
-        addToArray(sensorValue);
-        return;
-      }
-    }
-
-    sensorValue = analogRead(box[boxClusterNumber][6]); //
-    if(sensorValue > hitThreshold)//
-    {
-      if(currentTime - piezoLastHit[6] > waitBetweenHits)
-      {
-        piezoLastHit[6] = currentTime;
-        captureData = 6;
-        addToArray(sensorValue);
-        return;
-      }
-    }
-
-    sensorValue = analogRead(box[boxClusterNumber][7]); //
-    if(sensorValue > hitThreshold)//
-    {
-      if(currentTime - piezoLastHit[7] > waitBetweenHits)
-      {
-        piezoLastHit[7] = currentTime;
-        captureData = 7;
-        addToArray(sensorValue);
-        return;
-      }
+    for (uint8_t b = 0; b < 8; b++) {
+      // If piezo was tapped: isPiezoTriggered() sets captureData value.
+      if (isPiezoTriggered(b)) return;
     }
   }
 
@@ -203,135 +144,81 @@ void loop() {
 
   if(captureData < 8) //
   {
-    delayMicroseconds(200);
-    switch (captureData) 
-    {
-      case 0:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
-        addToArray(sensorValue);
-        break;
-      case 1:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
-        addToArray(sensorValue);
-        break;
-      case 2:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
-        addToArray(sensorValue);
-        break;
-      case 3:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
-        addToArray(sensorValue);
-        break;
-      case 4:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
-        addToArray(sensorValue);
-        break;
-      case 5:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
-        addToArray(sensorValue);
-        break;
-      case 6:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
-        addToArray(sensorValue);
-        break;
-      case 7:
-        sensorValue = analogRead(box[boxClusterNumber][captureData]); //
-        addToArray(sensorValue);
-        break;
-    }
-  }
-  
-}
+    // After an interval of millis, we can read the sensor, to determine
+    // whether there's enough energy to constitute a hit.
+    if ((currentTime - piezoLastHit[captureData]) >= millisBeforeMeasurement[boxClusterNumber]) {
 
-void addToArray(int sensorValue)
-{
-  rollingWave[incrementRolling] = sensorValue;      //keeps track of thrown or dropped
-  incrementRolling++;
-  if(incrementRolling == arrayDelayIncrement[boxClusterNumber]+2)
-  {
-    
-    incrementRolling = 0;
+      sensorValue = analogRead(box[boxClusterNumber][captureData]);
 
-//    for (int i=0; i<sizeRolling; i++)  //find the first zero
-//    {
-//      Serial.print(i);
-//      Serial.print(", ");
-//      Serial.println(rollingWave[i]);
-//    }
+      if (sensorValue >= hitThresholdAfterDelay[boxClusterNumber][captureData]) {
+        // Hit confirmed!
+        processHit(sensorValue);
+      }
 
-    if(rollingWave[arrayDelayIncrement[boxClusterNumber]] > hitThresholdAfterDelay[boxClusterNumber][captureData])
-    {
-      
-      Serial1.print(boxClusterNumber + 10);
-      Serial1.print(",");
-      Serial1.println(captureData);
-
-      Serial.print(boxClusterNumber + 10);
-      Serial.print(",");
-      Serial.println(captureData);
-      //Serial.println(rollingWave[arrayDelayIncrement[boxClusterNumber]]);
-      
-
-      colorWipe(Wheel(random(0,254),captureData),ledArray[captureData]);
+      // Hit has been processed, now it's safe to reset captureData
       captureData = 254;
-
     }
-    captureData = 254;
   }
 }
 
+// Returns true if a piezo has been triggered.
+bool isPiezoTriggered(uint8_t b)
+{
+  sensorValue = analogRead(box[boxClusterNumber][b]);
+  if(sensorValue > hitThreshold)
+  {
+    if(currentTime - piezoLastHit[b] > waitBetweenHits)
+    {
+      piezoLastHit[b] = currentTime;
+      captureData = b;
+      return true;
+    }
+  }
 
-void findAverageRolling(){
-  int highValue = 0;
-  int numberOf = 0;
-  int byteToSend = 0;
-  for(int i = 0; i < sizeRolling; i++){
-//    if(rollingAcc[i] > 500){
-//      numberOf++;
-//      highValue = highValue + rollingAcc[i];
-//    }
-  }
-  if(numberOf > 0){
-    byteToSend = highValue/numberOf;
-    //return (byte)byteToSend;
-  }else{
-    byteToSend = 0;
-    //return (byte)byteToSend;    
-  }
+  return false;
 }
 
+void processHit(int sensorValue)
+{
+  // Take control of the data line (RS485 differential pair)
+  digitalWrite(5, HIGH);
 
+  Serial1.print(boxClusterNumber + 10);
+  Serial1.print(",");
+  Serial1.println(captureData);
 
+  Serial.print(boxClusterNumber + 10);
+  Serial.print(",");
+  Serial.println(captureData);
+  Serial.println(sensorValue);
+
+  // Relinquish control of the data line
+  Serial1.flush();
+  Serial.flush();
+  digitalWrite(5, LOW);
+
+  startBoxAnimation(captureData);
+}
 
 // Fill the dots one after the other with a color
-void colorWipe(uint32_t c,byte stripNum) {
-  //Serial.println(stripNum);
-    strip.setPixelColor(stripNum, c);
-    strip.setPixelColor(stripNum+1, c);
-    strip.show(); 
+void startBoxAnimation(uint8_t b) {
+  //colors[b] = Wheel(random(0, 255));
+  hsvRandoms[b] = (HSV){.h = randf(), .s = randf(), .v = randf()};
+  brights[b] = 1.0f;  // Start at full brightness
 }
 
 
 // Input a value 0 to 255 to get a color value.
 // The colours are a transition r - g - b - back to r.
-uint32_t Wheel(byte WheelPos,byte pixel) {
+uint32_t Wheel(byte WheelPos) {
   WheelPos = 255 - WheelPos;
   if(WheelPos < 85) {
-    pixelColors[pixel][0] = 255 - WheelPos * 3;
-    pixelColors[pixel][1] = 0;
-    pixelColors[pixel][2] = WheelPos * 3;
     return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
   }
   if(WheelPos < 170) {
     WheelPos -= 85;
-    pixelColors[pixel][0] = 0;
-    pixelColors[pixel][1] = WheelPos * 3;
-    pixelColors[pixel][2] = 255 - WheelPos * 3;
     return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
   WheelPos -= 170;
-  pixelColors[pixel][0] = WheelPos * 3;
-  pixelColors[pixel][1] = 255 - WheelPos * 3;
-  pixelColors[pixel][2] = 0;
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
