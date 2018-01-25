@@ -17,9 +17,16 @@
 #include "Color.h"
 
 #define PIN 2
-#define BAUD_RATE  (115200)
+#define BAUD_RATE     (115200)
+
+// DEBUG_SERIAL must be false for production!
+#define DEBUG_SERIAL  (false)
 
 #define randf()    (random(0xffffff) * (1.0f / 0xffffff))
+
+#define ATTRACTOR_FADE_OUT_TIME       (1.6f)
+#define ATTRACTOR_HIDE_TIME           (4.5f)
+#define ATTRACTOR_FADE_IN_TIME        (3.5f)
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_RBG + NEO_KHZ800);
 
@@ -32,7 +39,7 @@ int box[][8] = {      //this fixes all the piezo locations for each box. They we
   {6,7,8,2,3,9,1,0}  //box 5
 }; //box 1
 
-#define HT    (30)      // Default hit threshold
+#define HT    (15)      // Default hit threshold
 
 int hitThresholdAfterDelay[][12] = {      //calibration if needed.. default was 20
   {HT,HT,HT,HT,HT,HT,HT,HT}, //box 0
@@ -82,9 +89,11 @@ void setup() {
   pinMode(5,OUTPUT);   //receive / transmit pin... pull high to send
   digitalWrite(5, LOW);
 
+  if (DEBUG_SERIAL) {
+    Serial.begin(BAUD_RATE);
+  }
 
- Serial.begin(BAUD_RATE);
- Serial1.begin(BAUD_RATE);
+  Serial1.begin(BAUD_RATE);
 
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
@@ -97,29 +106,35 @@ long piezoLastHit[8];
 long currentTime = 0;
 const int waitBetweenHits = 100;
 
-float cycle = 0.0f;
+float elapsed = 0.0f;
+float attractor = 1.0f; // Attractor animation fades in/out as appropriate. 0==off, 1==on.
+float attractorFadeOut = 0.0f;  // When a piezo is hit: Set this to fade out attractor.
 
 void loop() {
   long lastTime = currentTime;
   currentTime = millis();
 
-  cycle += (currentTime - lastTime) / 1000.0f;
+  float frameSeconds = (currentTime - lastTime) / 1000.0f;
+  elapsed += frameSeconds;
+
+  if (attractorFadeOut > 0.0f) {
+    // Attractor is fading out / hiding
+    attractor = max(0.0f, attractor - (frameSeconds / ATTRACTOR_FADE_OUT_TIME));
+    attractorFadeOut -= frameSeconds;
+
+  } else {
+    // Attractor is fading in
+    attractor = min(1.0f, attractor + (frameSeconds / ATTRACTOR_FADE_IN_TIME));
+  }
 
   // For each box: Dim the colors according to the brights.
   // Update each LED color.
+  boxColorsWillUpdate(boxClusterNumber, elapsed, attractor);
+
   for (uint8_t box = 0; box < 8; box++) {
+    // Get the box color. See: Color.h
+    RGB rgb = boxColor(boxClusterNumber, box, &hsvRandoms[box], brights[box], elapsed, attractor);
 
-    /*
-    uint32_t c = dimColor(colors[box], brights[box]);
-    uint8_t r = (c & 0xff0000) >> 16;
-    uint8_t g = (c & 0x00ff00) >>  8;
-    uint8_t b = (c & 0x0000ff);
-    */
-
-    // Test
-    //RGB8 rgb8 = (RGB8){.r = 0, .g = 0, .b = brights[box] * 0xff};
-
-    RGB rgb = boxColorActive(boxClusterNumber, &hsvRandoms[box], brights[box], cycle);
     RGB8 rgb8 = rgbToRGB8(rgb);
 
     uint16_t stripNum = ledArray[box];
@@ -132,6 +147,7 @@ void loop() {
 
   strip.show();
 
+  // No piezo has been triggered:
   if(captureData > 8)
   {
     for (uint8_t b = 0; b < 8; b++) {
@@ -150,6 +166,11 @@ void loop() {
 
       sensorValue = analogRead(box[boxClusterNumber][captureData]);
 
+      if (DEBUG_SERIAL) {
+        Serial.print("decayed:");
+        Serial.println(sensorValue);
+      }
+
       if (sensorValue >= hitThresholdAfterDelay[boxClusterNumber][captureData]) {
         // Hit confirmed!
         processHit(sensorValue);
@@ -167,6 +188,11 @@ bool isPiezoTriggered(uint8_t b)
   sensorValue = analogRead(box[boxClusterNumber][b]);
   if(sensorValue > hitThreshold)
   {
+    if (DEBUG_SERIAL) {
+      Serial.print("triggered:");
+      Serial.println(sensorValue);
+    }
+
     if(currentTime - piezoLastHit[b] > waitBetweenHits)
     {
       piezoLastHit[b] = currentTime;
@@ -187,14 +213,20 @@ void processHit(int sensorValue)
   Serial1.print(",");
   Serial1.println(captureData);
 
-  Serial.print(boxClusterNumber + 10);
-  Serial.print(",");
-  Serial.println(captureData);
-  Serial.println(sensorValue);
+  if (DEBUG_SERIAL) {
+    Serial.print(boxClusterNumber + 10);
+    Serial.print(",");
+    Serial.println(captureData);
+    Serial.println(sensorValue);
+  }
 
   // Relinquish control of the data line
   Serial1.flush();
-  Serial.flush();
+
+  if (DEBUG_SERIAL) {
+    Serial.flush();
+  }
+
   digitalWrite(5, LOW);
 
   startBoxAnimation(captureData);
@@ -202,9 +234,14 @@ void processHit(int sensorValue)
 
 // Fill the dots one after the other with a color
 void startBoxAnimation(uint8_t b) {
+  // Fade out the attractor. Pad with time for the attractor to stay hidden.
+  attractorFadeOut = ATTRACTOR_FADE_OUT_TIME + ATTRACTOR_HIDE_TIME;
+
   //colors[b] = Wheel(random(0, 255));
   hsvRandoms[b] = (HSV){.h = randf(), .s = randf(), .v = randf()};
   brights[b] = 1.0f;  // Start at full brightness
+
+  boxColorWasHit(boxClusterNumber, b);
 }
 
 
