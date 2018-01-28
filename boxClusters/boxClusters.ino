@@ -7,9 +7,9 @@
 // even number box clusters are on the left, odd number on the right
 // individual boxes within the box clusters start top left as 0 through bottom left as 7 zig zag
 //
-// Box Cluster Number -  2 numbers  5,6,7 are super sensative.
+// Box Cluster # numbers  5,6,7 are super sensative.
 
-#define boxClusterNumber 4
+#define boxClusterNumber 3
 
 #include "Keyboard.h"
 #include <stdint.h>
@@ -20,9 +20,9 @@
 #define BAUD_RATE     (115200)
 
 // DEBUG_SERIAL must be false for production!
-#define DEBUG_SERIAL      (false)
+#define DEBUG_SERIAL      (true)
 #define DEBUG_PIEZO       (false)
-#define DEBUG_HIT_VALUES  (false)
+#define DEBUG_HIT_VALUES  (true)
 
 #define randf()    (random(0xffffff) * (1.0f / 0xffffff))
 
@@ -32,14 +32,25 @@
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_RBG + NEO_KHZ800);
 
-int box[][8] = {      //this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
+int box[][12] = {      //this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
 	{3,0,7,9,6,8,2,1}, //box 0
 	{1,0,2,8,9,7,3,6},  //box 1
+	
 	{9,7,1,0,2,8,6,3},  //box 2
 	{9,1,0,2,8,7,3,6},  //box 3
+ 
 	{0,9,2,1,8,3,7,6},  //box 4
-	{6,7,8,2,3,9,1,0}  //box 5
-}; //box 1
+	{6,7,8,2,3,9,1,0},  //box 5
+  
+  {3,0,7,1,2,6,8,9},   //box 6
+  {1,2,9,3,8,0,6,7},   //box 7
+
+  {7,9,3,1,8,0,2,6},   //box 8
+  {2,3,1,6,9,7,0,8},   //box 9
+
+  {7,9,3,1,8,0,2,6},   //box 10 //not complete
+  {2,3,1,6,9,7,0,8},   //box 11  //not complete
+}; 
 
 // Default hit thresholds
 #define HT0     ( 30)
