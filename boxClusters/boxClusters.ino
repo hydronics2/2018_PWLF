@@ -9,7 +9,7 @@
 //
 // Box Cluster # numbers  5,6,7 are super sensative.
 
-#define boxClusterNumber 3
+#define boxClusterNumber 1
 
 #include "Keyboard.h"
 #include <stdint.h>
@@ -19,10 +19,10 @@
 #define PIN 2
 #define BAUD_RATE     (115200)
 
-// DEBUG_SERIAL must be false for production!
-#define DEBUG_SERIAL      (true)
+// DEBUG_SERIAL and the rest must be __false__ for production!
+#define DEBUG_SERIAL      (false)
 #define DEBUG_PIEZO       (false)
-#define DEBUG_HIT_VALUES  (true)
+#define DEBUG_HIT_VALUES  (false)
 
 #define randf()    (random(0xffffff) * (1.0f / 0xffffff))
 
@@ -35,13 +35,13 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_RBG + NEO_KHZ800);
 int box[][12] = {      //this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
 	{3,0,7,9,6,8,2,1}, //box 0
 	{1,0,2,8,9,7,3,6},  //box 1
-	
+
 	{9,7,1,0,2,8,6,3},  //box 2
 	{9,1,0,2,8,7,3,6},  //box 3
- 
+
 	{0,9,2,1,8,3,7,6},  //box 4
 	{6,7,8,2,3,9,1,0},  //box 5
-  
+
   {3,0,7,1,2,6,8,9},   //box 6
   {1,2,9,3,8,0,6,7},   //box 7
 
@@ -49,8 +49,8 @@ int box[][12] = {      //this fixes all the piezo locations for each box. They w
   {2,3,1,6,9,7,0,8},   //box 9
 
   {8,7,2,3,6,1,9,0},   //box 10
-  {9,6,7,1,3,0,2,8},   //box 11  
-}; 
+  {9,6,7,1,3,0,2,8},   //box 11
+};
 
 // Default hit thresholds
 #define HT0     ( 30)
@@ -59,7 +59,7 @@ int box[][12] = {      //this fixes all the piezo locations for each box. They w
 #define HT3     ( 30)
 #define HT4     ( 30)
 #define HT5     ( 30)
-#define HT6     ( 30)
+#define HT6     ( 42)
 #define HT7     ( 30)
 #define HT8     ( 30)
 #define HT9     ( 30)
@@ -73,22 +73,13 @@ int hitThreshold[][12] = {      //calibration if needed.. default was 20
 	{ HT3, HT3, HT3, HT3, HT3, HT3, HT3, HT3},  //box 3
 	{ HT4, HT4, HT4,  90, HT4, HT4, HT4, HT4},  //box 4
 	{  60, HT5, HT5, HT5, HT5, HT5, HT5, HT5},  //box 5
-	{ HT6, HT6, HT6, HT6, HT6, HT6, HT6, HT6},  //box 6
+	{ HT6, HT6, HT6, 200, 300, HT6, 100, HT6},  //box 6
 	{ HT7, HT7, HT7, HT7, HT7, HT7, HT7, HT7},  //box 7
-	{ HT8, HT8, HT8, HT8, HT8, HT8, HT8, HT8},  //box 8
-	{ HT9, HT9, HT9, HT9, HT9, HT9, HT9, HT9},  //box 9
-	{HT10,HT10,HT10,HT10,HT10,HT10,HT10,HT10},  //box 10
-	{HT11,HT11,HT11,HT11,HT11,HT11,HT11,HT11}  //box 11
+	{ HT8, HT8, HT8, HT8, 200, 200, HT8, HT8},  //box 8
+	{ HT9, HT9, HT9,  50, HT9, HT9, HT9, HT9},  //box 9
+	{ 170,HT10, 100,  70, 250,  40,  70,HT10},  //box 10
+	{HT11,HT11,HT11,HT11,HT11, 100,  50, 100}  //box 11
 };
-
-/*
-#define MM     (40)     // Default millis before measurement
-
-int millisBeforeMeasurement[12] = {  //callibration if needed ... default was 58 boxes 2 and 3 were sensitive
-	MM,MM,MM,MM,MM,MM,
-	MM,MM,MM,MM,MM,MM
-};
-*/
 
 uint16_t ledArray[]={0,2,4,6,8,10,12,14};
 
@@ -129,6 +120,13 @@ void loop() {
 
 	float frameSeconds = (currentTime - lastTime) / 1000.0f;
 	elapsed += frameSeconds;
+
+	// There is a bug where `elapsed` accumulates so high, that it loses floating
+	// point precision, and animations slow down, or freeze entirely :D
+	// When elapsed is larger than some large-ish number of seconds: Flip back to 0.
+	if (elapsed > (60 * 60 * 3.0f)) {	// OK to reset once every 3 hours?
+		elapsed = 0.0f;
+	}
 
 	if (attractorFadeOut > 0.0f) {
 		// Attractor is fading out / hiding
@@ -199,68 +197,7 @@ void loop() {
 		processHit(bestBox, hitValues[bestBox]);
 	}
 
-	/*
-	// No piezo has been triggered:
-	if(activeBox > 8)
-	{
-		for (uint8_t b = 0; b < 8; b++) {
-			// If piezo was tapped: isPiezoTriggered() sets activeBox value.
-			if (isPiezoTriggered(b)) return;
-		}
-	}
-
-	//once triggered... read only active sensor
-
-	if(activeBox < 8) //
-	{
-		// After an interval of millis, we can read the sensor, to determine
-		// whether there's enough energy to constitute a hit.
-		if ((currentTime - piezoLastHit[activeBox]) >= millisBeforeMeasurement[boxClusterNumber]) {
-
-			sensorValue = analogRead(box[boxClusterNumber][activeBox]);
-
-			if (DEBUG_SERIAL) {
-				Serial.print("decayed:");
-				Serial.println(sensorValue);
-			}
-
-			if (sensorValue >= hitThresholdAfterDelay[boxClusterNumber][activeBox]) {
-				// Hit confirmed!
-				processHit(sensorValue);
-			}
-
-			// Hit has been processed, now it's safe to reset activeBox
-			activeBox = 254;
-		}
-	}
-	*/
 }
-
-// Returns true if a piezo has been triggered.
-/*
-bool isPiezoTriggered(uint8_t b)
-{
-	// Ensure enough time has passed between hits.
-	if ((currentTime - piezoLastHit[b]) < waitBetweenHits) {
-		return false;
-	}
-
-	sensorValue = analogRead(box[boxClusterNumber][b]);
-
-	if (DEBUG_HIT_VALUES && (sensorValue >= 20)) {
-		Serial.println(sensorValue);
-	}
-
-
-	if(sensorValue < hitThreshold[boxClusterNumber][b]) {  // Hit was not strong enough?
-		return false;
-	}
-
-	piezoLastHit[b] = currentTime;
-	//activeBox = b;
-	return true;
-}
-*/
 
 void processHit(uint8_t activeBox, int sensorValue)
 {
