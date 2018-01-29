@@ -48,8 +48,8 @@ int box[][12] = {      //this fixes all the piezo locations for each box. They w
   {7,9,3,1,8,0,2,6},   //box 8
   {2,3,1,6,9,7,0,8},   //box 9
 
-  {7,9,3,1,8,0,2,6},   //box 10 //not complete
-  {2,3,1,6,9,7,0,8},   //box 11  //not complete
+  {8,7,2,3,6,1,9,0},   //box 10
+  {9,6,7,1,3,0,2,8},   //box 11  
 }; 
 
 // Default hit thresholds
