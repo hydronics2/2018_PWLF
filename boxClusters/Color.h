@@ -7,6 +7,14 @@
 #define randf()    (random(0xffffff) * (1.0f / 0xffffff))
 #endif
 
+// Stations should be arranged in this order (as viewed from inside the arc, facing out):
+//
+//              6,7
+//             -----
+//      2,3/    4,5     \10,11
+//        /0,1        8,9\
+//       /                \
+
 /*
 const uint8_t PROGMEM gamma8[] = {
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -28,7 +36,7 @@ const uint8_t PROGMEM gamma8[] = {
 */
 
 const uint8_t PROGMEM gamma8[] = {
-	0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
+	0,   0,   0,   0,   0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
 	1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
 	1,   2,   2,   2,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,   4,   4,
 	4,   4,   4,   5,   5,   5,   5,   6,   6,   6,   6,   7,   7,   7,   7,   8,
@@ -65,15 +73,25 @@ struct HSV {
 	float v;  // value (brightness)
 };
 
+HSV cells[8];
+
 inline float saturate(const float f) {
 	return constrain(f, 0.0f, 1.0f);
 }
 
-RGB addRGBclamped(const RGB * c0, const RGB * c1) {
+inline RGB addRGBclamped(const RGB * c0, const RGB * c1) {
 	return (RGB){
 		.r = saturate(c0->r + c1->r),
 		.g = saturate(c0->g + c1->g),
 		.b = saturate(c0->b + c1->b)
+	};
+}
+
+inline RGB lerpRGB(const RGB * c0, const RGB * c1, float v) {
+	return (RGB) {
+		.r = lerp(c0->r, c1->r, v),
+		.g = lerp(c0->g, c1->g, v),
+		.b = lerp(c0->b, c1->b, v),
 	};
 }
 
@@ -128,24 +146,20 @@ inline float easeQuad(float v) {
 	return 1.0f - (iv * iv);
 }
 
-float attractWave(uint8_t cluster, uint8_t box, float elapsed)
+float attractDiagonal(uint8_t cluster, uint8_t box, float elapsed)
 {
-	const float WAVE_TIME = 2.2f;
-	const float WAVE_SPREAD = 0.09f;
-
 	// Clusters: Waves should appear to emit from center.
 	// Odd-numbered clusters: reverse the box order.
-	if (cluster & 0x1) box = 7 - box;
+	if (cluster & 0x1) {
+		box = (box <= 3) ? (box + 4) : (box - 4);
+	}
 
-	float stagger = (box <= 3) ? box : (7 - box); // Boxes closer to center get lower values
+	//uint8_t step = (box <= 3) ? (box * 2) : ((7 - box) * 2 + 1);  // zip zag
+	const uint8_t ar[] = {0,5,2,7, 3,6,1,4};
+	uint8_t step = ar[box];
 
-	stagger *= WAVE_SPREAD;
-	stagger += (elapsed / WAVE_TIME);
-	if (box & 0x1) stagger += 0.036f;  // every other box: slight delay
-	stagger -= floor(stagger);
-
-	// Smooth this out, attack shouldn't be instantaneous
-	return easeSineBlend(tri(stagger, 0.66f), 0.8f);
+	float saw = (step / 8.0f) + elapsed;
+	return saw - floor(saw);
 }
 
 float attractWalk(uint8_t box, float elapsed)
@@ -158,24 +172,28 @@ float attractWalk(uint8_t box, float elapsed)
 	return saw - floor(saw);
 }
 
-HSV cells[8];
-
 bool isClusterDrums(uint8_t cluster) {
-	return cluster == 1;
+	return (cluster == 0) || (cluster == 1);
 }
 
 void boxColorWasHit(uint8_t cluster, uint8_t box) {
 	if (isClusterDrums(cluster)) {
+		bool greenish = (random(999) % 2);
+
 		// Pick a warm hue
 		float h = randf();
-		h = (h - 0.15f) * (1.0f / 6.0f);
-
-		// Adjacent cluster: more yellow
-		if (!(cluster & 0x1)) {
-			h += (1.0f / 9.0f);
+		if (greenish) {
+			h = lerp(0.46f, 0.5f, randf());
+		} else {
+			h = (h - 0.15f) * (1.0f / 6.0f);
 		}
 
-		float s = lerp(0.7f, 0.9f, randf());
+		float s = 0.0f;
+		if (greenish) {
+			s = lerp(0.6f, 0.8f, randf());
+		} else {
+			s = lerp(0.7f, 0.9f, randf());
+		}
 
 		uint8_t squares[] = {0,1,6,7, 2,3,4,5};
 		bool isSquare0 = (box <= 1) || (box >= 6);
@@ -185,7 +203,7 @@ void boxColorWasHit(uint8_t cluster, uint8_t box) {
 			cells[target] = (HSV){
 				.h = h,
 				.s = (target == box) ? (s * 0.5f) : s,
-				.v = (target == box) ? 1.0f : 0.6f
+				.v = (target == box) ? 1.0f : (greenish ? 0.55f : 0.6f)
 			};
 		}
 	}
@@ -210,47 +228,15 @@ void boxColorsWillUpdate(uint8_t cluster, float elapsed, float attractor) {
 // attractor:  0..1 value indicating if the attractor is being shown.
 RGB boxColor(uint8_t cluster, uint8_t box, HSV * rando, float bright, float elapsed, float attractor)
 {
-	// Debug: Show the box order
-	if (false) {
-		return (RGB){
-			.r = (box & 0x1) ? 1.0f : 0.0f,
-			.g = (box & 0x2) ? 1.0f : 0.0f,
-			.b = (box & 0x4) ? 1.0f : 0.0f
-		};
-	}
+	//cluster = 99;	// DEBUG
+
+	// Attempting to debug cluster==0, why no active animation? Hmm
+	RGB rgbActive = {.r = 0, .g = 0, .b = 0};
+	RGB rgbAttractor = {.r = 0, .g = 0, .b = 0};
 
 	switch (cluster) {
 
 		case 0:
-		{
-			//
-			//  Slow rainbow with glow
-			//
-			float glow = (cos((1.0f - bright) * rando->s * 60.0f) + 1.0f) * 0.5f;
-			float h = rando->h * 0.1f + (0.6667f - 0.05f) - glow * 0.1f + elapsed / 120.0f + sin(elapsed / 10.0f) * 0.5f; // Who knows what this does?? lol
-
-			// Envelope should be shorter
-			float env = constrain(bright * 2.0f - 1.0f, 0.0f, 1.0f);
-
-			// More motion: Sync with the h changes?
-			float glowCos = (cos(bright * rando->s * 120.0f) + 3.0f) * 0.25f;
-			float v = glowCos * env;
-
-			RGB rgbActive = hsv2rgb(
-				h,
-				lerp(1.0f, 0.3f, glow),
-				v
-			);
-
-			// Attractor
-			float attractHue = h + (box ^ 0b11) * 0.08f;
-			float wave = attractWave(cluster, box, elapsed);
-			RGB rgbAttractor = hsv2rgb(attractHue, (1.0f - wave) * 0.5f, wave * 0.4f * attractor);
-
-			return addRGBclamped(&rgbActive, &rgbAttractor);
-		}
-		break;
-
 		case 1:
 		{
 			//
@@ -258,15 +244,16 @@ RGB boxColor(uint8_t cluster, uint8_t box, HSV * rando, float bright, float elap
 			//
 			HSV * hsv = &cells[box];
 
+			// The other cells in the 2x2 group: add some noise to the brightness
 			float sizzle = hsv->v;
 			if (hsv->s >= 0.66f) {
 				sizzle *= lerp(0.93f, 1.0f, randf());
 			}
 
-			RGB rgbActive = hsv2rgb(hsv->h, hsv->s, sizzle);
+			rgbActive = hsv2rgb(hsv->h, hsv->s, sizzle);
 
 			// Slow walk?
-			RGB rgbAttractor = (RGB){.r = 0, .g = 0, .b = 0};
+			rgbAttractor = (RGB){.r = 0, .g = 0, .b = 0};
 			if (hsv->v <= 0.0f) {
 				float walk = attractWalk(box, elapsed * 0.45f);
 				walk = saturate(walk * 2.0f - 1.0f);
@@ -281,106 +268,45 @@ RGB boxColor(uint8_t cluster, uint8_t box, HSV * rando, float bright, float elap
 		break;
 
 		case 2:
+		case 3:
 		{
 			//
 			//  Washed out (white -> fade to pastels)
 			//
-			RGB rgbActive = hsv2rgb(rando->h, 1.0 - bright, bright);
+			rgbActive = hsv2rgb(rando->h, 1.0 - bright, bright);
 
 			// Attractor
 			float attractHue = (elapsed / 40.0f) + (box ^ 0b11) * 0.08f;
-			float wave = attractWave(cluster, box, elapsed);
-			RGB rgbAttractor = hsv2rgb(attractHue, (1.0f - wave) * 0.5f, wave * 0.45f * attractor);
+
+			float wave = attractDiagonal(cluster, box, elapsed / 4.0f);
+			wave = saturate(wave * 2.0f - 1.0f);
+			wave = tri(wave, 0.05f);
+			wave = easeSine(wave);
+			if (wave < 0.25f) wave = 0.0f;
+
+			rgbAttractor = hsv2rgb(attractHue, (1.0f - wave) * 0.5f, wave * 0.45f * attractor);
 
 			return addRGBclamped(&rgbActive, &rgbAttractor);
 		}
 		break;
 
-		case 3:
+		default:
 		{
-			//
-			//  Red/orange/yellow fire and lava.
-			//
+			// Debug: Shows the box order
+			RGB attract = (RGB){
+				.r = (box & 0x1) ? 1.0f : 0.0f,
+				.g = (box & 0x2) ? 1.0f : 0.0f,
+				.b = (box & 0x4) ? 1.0f : 0.0f
+			};
 
-			//  Hue is kinda perlin noise, sum of harmonics.
-			const float AMP0 = 1.0f;
-			const float AMP1 = 0.7f;
-			const float AMP2 = 0.5f;
-			float p = bright * 200.0f;
-			float n = sin(rando->h * p) * AMP0 +
-								sin(rando->s * p) * AMP1 +
-								sin(rando->v * p) * AMP2;
-			n = (n * (0.5f / (AMP0 + AMP1 + AMP2))) + 0.5f;
+			// Active: Show a rainbow
+			RGB active = hsv2rgb(elapsed * 0.2f, 1.0f, 1.0f);
 
-			float speedUp = lerp(1.0, 3.0f, rando->h);
-			float fastFade = max(0.0f, bright * (speedUp + 1.0f) - speedUp);
-			float decay = lerp(fastFade, fastFade * fastFade, 0.5f + rando->v * 0.5f);
-
-			RGB rgbActive = hsv2rgb(
-				constrain(n * 0.16667f, 0.0f, 1.0f/6),
-				1.0f,
-				decay
-			);
-
-			// Attractor: Don't fade out when there are active boxes.
-			// Lava should always be active.
-			const float p2 = (box ^ 37) * 139.0f + elapsed * 4.2f;
-			float n2 = sin(p2) * AMP0 +
-								 sin(p2 * 1.12f) * AMP2 +
-								 sin(p2 * 1.31f) * AMP1;
-			n2 = (n2 * (0.5f / (AMP0 + AMP1 + AMP2))) + 0.5f;
-
-			RGB rgbAttractor = hsv2rgb(
-				constrain((1.0f - n2) * 0.05, 0.0f, 1.0f/12),
-				lerp(0.75, 1.0f, n2),
-				constrain((0.1f + n2 * 0.35f) * (1.0f - decay), 0.0f, 1.0f)
-			);
-
-			return addRGBclamped(&rgbActive, &rgbAttractor);
+			return lerpRGB(&attract, &active, bright);
 		}
 		break;
 
 		case 4:
-		{
-			//
-			//  Fast rainbow-
-			//
-			float h = rando->h + bright * 1.6f;
-
-			const float ATTACK_AMT = 0.955f;
-			if (bright > ATTACK_AMT) {
-				float attack = (bright - ATTACK_AMT) * (1.0f / (1.0f - ATTACK_AMT));
-				attack *= attack; // easing
-				h -= attack * 0.5f;
-			}
-			RGB rgbActive = hsv2rgb(h, 1.0, bright);
-
-			/*
-			// Attractor: Checkerboard pattern
-			float wave = attractWave(cluster, (box & 0x1) ? 11 : 0, elapsed * 0.75f);
-			wave = saturate(easeSineBlend(wave, 0.5f) * 2.0f - 0.8f);
-
-			// Prevent ugly gamma artifacts at the bottom
-			if (wave < 0.4f) wave = 0.0f;
-			*/
-
-			// Slow walk?
-			float walk = attractWalk(box, elapsed * 0.15f);
-			walk = saturate(walk * 2.0f - 1.0f);
-			walk = tri(walk, 0.2f);
-			walk = easeSine(walk);
-			if (walk < 0.25f) walk = 0.0f;
-
-			RGB rgbAttractor = hsv2rgb(
-				elapsed / 30.0f,
-				0.08f,
-				walk * attractor * 0.35f
-			);
-
-			return addRGBclamped(&rgbActive, &rgbAttractor);
-		}
-		break;
-
 		case 5:
 		{
 			//
@@ -404,19 +330,38 @@ RGB boxColor(uint8_t cluster, uint8_t box, HSV * rando, float bright, float elap
 			float b2 = fastFade * fastFade;
 			float b4 = b2 * b2;
 
+			// If the color is pink then it's LASER TIME
+			const float LASER_TIME = 0.97f;
+			float laser = 1.0f;
+			if ((h >= 0.785f) && (fastFade >= LASER_TIME)) {
+				float v_wrap = (1.0f - fastFade) / (1.0f - LASER_TIME);
+				v_wrap *= 3.0f;
+				v_wrap -= floor(v_wrap);
+				laser = 1.0f - tri(v_wrap, 0.5f);
+				laser *= laser;
+				laser = lerp(0.45f, 1.0f, laser);
+			}
+
 			h += b4 * 0.075f;
 
 			// I want some warble too
 			float warble = (cos((rando->v + 0.9f) * (1.0f - bright) * 80.0f) + 1.0f) * 0.5f;
 			float v = lerp(fastFade, warble, 0.12f);
 
-			RGB rgbActive = hsv2rgb(h, 1.0f, v * fastFade);
+			rgbActive = hsv2rgb(h, 1.0f, v * fastFade * laser);
 
 			// Attractor
-			float ch = cos(elapsed + (box ^ 57));
-			float attractHue = 0.334f + (ch * ch) * 0.09f;  // green towards blue
-			float wave = attractWave(cluster, box, elapsed);
-			RGB rgbAttractor = hsv2rgb(
+			float elapsedRando = (cluster & 0x1) ? (elapsed * 1.29f) : elapsed;
+			float ch = cos(elapsedRando + (box ^ 57));
+			float attractHue = 0.85f + (ch * ch) * 0.09f;  // green towards blue
+
+			float wave = attractDiagonal(cluster, box, elapsed / 4.0f);
+			wave = saturate(wave * 2.0f - 1.0f);
+			wave = tri(wave, 0.05f);
+			wave = easeSine(wave);
+			if (wave < 0.25f) wave = 0.0f;
+
+			rgbAttractor = hsv2rgb(
 				attractHue,
 				1.0f,
 				wave * 0.45f * attractor * (1.0f - fastFade)
@@ -426,7 +371,136 @@ RGB boxColor(uint8_t cluster, uint8_t box, HSV * rando, float bright, float elap
 		}
 		break;
 
-		default: break;
+		case 6:
+		case 7:
+		{
+			//
+			//  Fast rainbow-
+			//
+			float h = rando->h + bright * 1.6f;
+
+			const float ATTACK_AMT = 0.955f;
+			if (bright > ATTACK_AMT) {
+				float attack = (bright - ATTACK_AMT) * (1.0f / (1.0f - ATTACK_AMT));
+				attack *= attack; // easing
+				h -= attack * 0.5f;
+			}
+			rgbActive = hsv2rgb(h, 1.0, bright);
+
+			/*
+			// Attractor: Checkerboard pattern
+			float wave = attractDiagonal(cluster, (box & 0x1) ? 11 : 0, elapsed * 0.75f);
+			wave = saturate(easeSineBlend(wave, 0.5f) * 2.0f - 0.8f);
+
+			// Prevent ugly gamma artifacts at the bottom
+			if (wave < 0.4f) wave = 0.0f;
+			*/
+
+			// Slow walk?
+			float walk = attractWalk(box, elapsed * 0.42f);
+			walk = saturate(walk * 2.0f - 1.0f);
+			walk = tri(walk, 0.2f);
+			walk = easeSine(walk);
+			if (walk < 0.25f) walk = 0.0f;
+
+			float attractHue = (elapsed / 13.0f);
+
+			rgbAttractor = hsv2rgb(
+				attractHue,
+				0.50f,
+				walk * attractor * 0.375f
+			);
+
+			return addRGBclamped(&rgbActive, &rgbAttractor);
+		}
+		break;
+
+		case 8:
+		case 9:
+		{
+			//
+			//  Slow rainbow with glowing white LFO
+			//
+			float glow = (cos((1.0f - bright) * rando->s * 60.0f) + 1.0f) * 0.5f;
+			float h = rando->h * 0.1f + (0.6667f - 0.05f) - glow * 0.1f + elapsed / 120.0f + sin(elapsed / 10.0f) * 0.5f; // Who knows what this does?? lol
+
+			// Envelope should be shorter
+			float env = constrain(bright * 2.0f - 1.0f, 0.0f, 1.0f);
+
+			// More motion: Sync with the h changes?
+			float glowCos = (cos(bright * rando->s * 120.0f) + 3.0f) * 0.25f;
+			float v = glowCos * env;
+
+			rgbActive = hsv2rgb(
+				h,
+				lerp(1.0f, 0.3f, glow),
+				v
+			);
+
+			// Attractor
+			float attractHue = h + (box ^ 0b11) * 0.08f;
+
+			float wave = attractDiagonal(cluster, box, elapsed / 4.0f);
+			wave = saturate(wave * 2.0f - 1.0f);
+			wave = tri(wave, 0.15f);
+			wave = easeSine(wave);
+			if (wave < 0.25f) wave = 0.0f;
+
+			rgbAttractor = hsv2rgb(attractHue, (1.0f - wave) * 0.5f, wave * 0.4f * attractor);
+
+			return addRGBclamped(&rgbActive, &rgbAttractor);
+		}
+		break;
+
+		case 10:
+		case 11:
+		{
+			//
+			//  Red/orange/yellow fire and lava.
+			//
+
+			//  Hue is kinda perlin noise, sum of harmonics.
+			const float AMP0 = 1.0f;
+			const float AMP1 = 0.7f;
+			const float AMP2 = 0.5f;
+			float p = bright * 200.0f;
+			float n = sin(rando->h * p) * AMP0 +
+								sin(rando->s * p) * AMP1 +
+								sin(rando->v * p) * AMP2;
+			n = (n * (0.5f / (AMP0 + AMP1 + AMP2))) + 0.5f;
+
+			float speedUp = lerp(1.0, 3.0f, rando->h);
+			float fastFade = max(0.0f, bright * (speedUp + 1.0f) - speedUp);
+			float decay = lerp(fastFade, fastFade * fastFade, 0.5f + rando->v * 0.5f);
+
+			rgbActive = hsv2rgb(
+				constrain(n * 0.16667f, 0.0f, 1.0f/6),
+				1.0f,
+				decay
+			);
+
+			// Attractor: Don't fade out when there are active boxes.
+			// Lava should always be active.
+			if (cluster & 0x1) elapsed -= 668.0f;	// the neighbor of the beast
+			float timeGnar = (cluster & 0x1) ? 135.2f : 139.0f;
+			uint8_t boxGnar = (box ^ 37);
+			float p2 = boxGnar * timeGnar + elapsed * 4.2f;
+
+			float n2 = sin(p2) * AMP0 +
+								 sin(p2 * 1.12f) * AMP2 +
+								 sin(p2 * 1.31f) * AMP1;
+			n2 = (n2 * (0.5f / (AMP0 + AMP1 + AMP2))) + 0.5f;
+
+			rgbAttractor = hsv2rgb(
+				constrain((1.0f - n2) * 0.05, 0.0f, 1.0f/12),
+				lerp(0.75, 1.0f, n2),
+				constrain((0.1f + n2 * 0.35f) * (1.0f - decay), 0.0f, 1.0f)
+			);
+
+			return addRGBclamped(&rgbActive, &rgbAttractor);
+		}
+		break;
+
 	}
 
 	return (RGB){0.0f, 0.0f, 0.0f};
