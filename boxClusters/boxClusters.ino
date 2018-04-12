@@ -1,15 +1,11 @@
-//
-// NOTES:
-// Change Box Cluster Number to 0-15... each station is made up of 2 box clusters
-// 0,1
-// 2,3
-// 4,5 and so on to 10,11
-// even number box clusters are on the left, odd number on the right
-// individual boxes within the box clusters start top left as 0 through bottom left as 7 zig zag
-//
-// Box Cluster # numbers  5,6,7 are super sensative.
+// MODIFY THIS when flashing Arduinos:
+#define boxClusterNumber (1)
 
-#define boxClusterNumber 1
+// Cluster count:
+#define CLUSTERS  (12)
+
+// Boxes per cluster: (2018 PWLF was 8. TX version is 7.)
+#define BOXES     (7)
 
 #include "Keyboard.h"
 #include <stdint.h>
@@ -35,28 +31,30 @@
 #define ATTRACTOR_HIDE_TIME           (0.3f)
 #define ATTRACTOR_FADE_IN_TIME        (0.7f)
 
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(120, PIN, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(434, PIN, NEO_GRB + NEO_KHZ800); //was 521 for test board strips
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, PIN, NEO_GRB + NEO_KHZ800); //was 521 for test board strips
+//uint16_t ledArray[]={0,15,30,45,60,75,90,105};  //this specifies the number of LEDs in each box, or does it??
+//uint16_t ledArray[]={0,65,130,195,260,325,390,455};  //from test board: this specifies the number of LEDs in each strip.
+//uint16_t ledArray[]={0,61,121,181,245,307,369,431};  //for final designed board: this specifies the number of LEDs in each strip.
+uint16_t ledArray[]={0,62,123,185,247,309,371,433};  //for final designed board: this specifies the number of LEDs in each strip.
+//uint16_t ledArray[]={0,62,125,188,251,314,377,440};  //for final designed board: this specifies the number of LEDs in each strip.
+//uint16_t ledArray[]={0,1,2,3,4,5,6,7};  //test board: this specifies the number of LEDs in each strip.
 
-int box[][12] = {      // why is this 12?  this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
-	//{3,0,7,9,6,8,2,1}, //box 0
-//  {0,1,2,3,6,7,8,9}, //box 0
-//	{0,1,2,3,6,7,8,9},  //box 1
-//	{0,1,2,3,6,7,8,9},  //box 2
-//	{0,1,2,3,6,7,8,9},  //box 3
-  {0,1,2,3,6,7,8,9}, //box 0  ground out pin 9, just to keep code logic straight
-  {0,1,2,3,6,7,8,9},  //box 1
-  {0,1,2,3,6,7,8,9},  //box 2
-  {0,1,2,3,6,7,8,9},  //box 3
-	//{0,1,2,3,6,7,8,9},   //box 4
-  //{0,1,2,3,6,7,8,9},   //box 5
-  //{3,0,7,1,2,6,8,9},   //box 6
-  //{0,1,2,3,6,7,8,9},   //box 7
-  //{1,0,7,9,6,8,2,3},    //box 8
-  //{0,1,2,3,6,7,8,9},    //box 9
-  //{1,0,7,9,6,8,2,3},    //box 10
-  //{0,1,2,3,6,7,8,9},    //box 11
+// LED strip length: Match the number of LEDs specified in ledArray[]..
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(ledArray[BOXES], PIN, NEO_GRB + NEO_KHZ800); //was 521 for test board strips
+
+// this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
+int box[CLUSTERS][BOXES] = {
+  {0,1,2,3,6,7,8}, //cluster 0  ground out pin 9, just to keep code logic straight
+  {0,1,2,3,6,7,8},  //cluster 1
+  {0,1,2,3,6,7,8},  //cluster 2
+  {0,1,2,3,6,7,8},  //cluster 3
+	{0,1,2,3,6,7,8},  //cluster 4
+  {0,1,2,3,6,7,8},  //cluster 5
+  {0,1,2,3,6,7,8},  //cluster 6
+	{0,1,2,3,6,7,8},  //cluster 7
+  {0,1,2,3,6,7,8},  //cluster 8
+  {0,1,2,3,6,7,8},  //cluster 9
+	{0,1,2,3,6,7,8},  //cluster 10
+  {0,1,2,3,6,7,8}   //cluster 11
 };
 
 // Default hit thresholds
@@ -73,36 +71,27 @@ int box[][12] = {      // why is this 12?  this fixes all the piezo locations fo
 #define HT10    ( 70)
 #define HT11    ( 70)
 
-int hitThreshold[][12] = {      //calibration if needed.. default was 20
-	{ HT0, HT0, HT0, HT0, HT0, HT0, HT0, HT0}, //box 0
-	{ HT1, HT1, HT1, HT1, HT1, HT1, HT1, HT1},  //box 1
-	{ HT2, HT2, HT2, HT2, HT2, HT2, HT2, HT2},  //box 2  - boxes 5,6,7 were extra sensative...
-	{ HT3, HT3, HT3, HT3, HT3, HT3, HT3, HT3},  //box 3
-	{ HT4, HT4, HT4,  HT4, HT4, HT4, HT4, HT4},  //box 4
-	{  HT5, HT5, HT5, HT5, HT5, HT5, HT5, HT5},  //box 5
-	{ HT6, HT6, HT6, HT6, HT6, HT6, HT6, HT6},  //box 6
-	{ HT7, HT7, HT7, HT7, HT7, HT7, HT7, HT7},  //box 7
-	{ HT8, HT8, HT8, HT8, HT8, HT8, HT8, HT8},  //box 8
-	{ HT9, HT9, HT9,HT9, HT9, HT9, HT9, HT9},  //box 9
-	{ HT10,HT10,HT10,HT10,HT10,HT10,HT10,HT10},  //box 10
-	{HT11,HT11,HT11,HT11,HT11,HT11,HT11,HT11}  //box 11
+int hitThreshold[CLUSTERS][BOXES] = {      //calibration if needed.. default was 20
+	{ HT0, HT0, HT0, HT0, HT0, HT0, HT0}, //cluster 0
+	{ HT1, HT1, HT1, HT1, HT1, HT1, HT1},  //cluster 1
+	{ HT2, HT2, HT2, HT2, HT2, HT2, HT2},  //cluster 2
+	{ HT3, HT3, HT3, HT3, HT3, HT3, HT3},  //cluster 3
+	{ HT4, HT4, HT4, HT4, HT4, HT4, HT4},  //cluster 4
+	{ HT5, HT5, HT5, HT5, HT5, HT5, HT5},  //cluster 5
+	{ HT6, HT6, HT6, HT6, HT6, HT6, HT6},  //cluster 6
+	{ HT7, HT7, HT7, HT7, HT7, HT7, HT7},  //cluster 7
+	{ HT8, HT8, HT8, HT8, HT8, HT8, HT8},  //cluster 8
+	{ HT9, HT9, HT9, HT9, HT9, HT9, HT9},  //cluster 9
+	{HT10,HT10,HT10,HT10,HT10,HT10,HT10},  //cluster 10
+	{HT11,HT11,HT11,HT11,HT11,HT11,HT11}  //cluster 11
 };
-
-//uint16_t ledArray[]={0,15,30,45,60,75,90,105};  //this specifies the number of LEDs in each box, or does it??
-//uint16_t ledArray[]={0,65,130,195,260,325,390,455};  //from test board: this specifies the number of LEDs in each strip.
-//uint16_t ledArray[]={0,61,121,181,245,307,369,431};  //for final designed board: this specifies the number of LEDs in each strip.
-uint16_t ledArray[]={0,62,123,185,247,309,371,433};  //for final designed board: this specifies the number of LEDs in each strip.
-
-//uint16_t ledArray[]={0,62,125,188,251,314,377,440};  //for final designed board: this specifies the number of LEDs in each strip.
-
-//uint16_t ledArray[]={0,1,2,3,4,5,6,7};  //test board: this specifies the number of LEDs in each strip.
 
 int sensorValue = 0;        // value read from the pot
 
-HSV hsvRandoms[8];
-float brights[8] = {0.0f};
+HSV hsvRandoms[BOXES];
+float brights[BOXES] = {0.0f};
 
-long piezoLastHit[8] = {0};
+long piezoLastHit[BOXES] = {0};
 long currentTime = 0;
 const int waitBetweenHits = 100;
 
@@ -156,7 +145,7 @@ void loop() {
 	// Update each LED color.
 	boxColorsWillUpdate(boxClusterNumber, elapsed, attractor);
 
-	for (uint8_t box = 0; box < 8; box++) {
+	for (uint8_t box = 0; box < BOXES; box++) {
 		// Get the box color. See: Color.h
 		RGB rgb = boxColor(boxClusterNumber, box, &hsvRandoms[box], brights[box], elapsed, attractor);
 
@@ -176,15 +165,12 @@ void loop() {
  //   strip.setPixelColor(stripNum + 8, rgb8.r, rgb8.g, rgb8.b);
  //   strip.setPixelColor(stripNum + 9, rgb8.r, rgb8.g, rgb8.b);
 
-uint16_t stripNum = ledArray[box];
-int stripLast = ledArray[box+1]; // this enabled the 2nd light strip.  Repeat increment for each lightbox strip.
-    for(int i = stripNum; i<stripLast; i++)
+		uint16_t stripNum = ledArray[box];
+		uint16_t stripLast = ledArray[box+1]; // this enabled the 2nd light strip.  Repeat increment for each lightbox strip.
+    for(uint16_t i = stripNum; i<stripLast; i++)
     {
       strip.setPixelColor(i, rgb8.r, rgb8.g, rgb8.b);
     }
-    //strip.setPixelColor(stripNum, rgb8.r, rgb8.g, rgb8.b);
-    //strip.setPixelColor(stripNum + 1, rgb8.r, rgb8.g, rgb8.b);
-
 
 		// Decay brightness
 		brights[box] = max(0.0f, brights[box] - (1.0f / 2000.0f));
@@ -193,15 +179,15 @@ int stripLast = ledArray[box+1]; // this enabled the 2nd light strip.  Repeat in
 	strip.show();
 
 	if (DEBUG_PIEZO) {
-		Serial.println(analogRead(box[boxClusterNumber][7]));
+		Serial.println(analogRead(box[boxClusterNumber][0]));
 		return;
 	}
 
 	// Read values for each piezo sensor
-	int hitValues[8] = {0};
+	int hitValues[BOXES] = {0};
 	int8_t bestBox = -1;
 //3,0,7,9,6,8,2,1
-	for (uint8_t b = 0; b < 8; b++) {   //thomas changed this from 6 to 2, so its only scanning the first few analog inputs.  the leonardo might have a damaged analog pin?? pin 6 was freaking out for some reason
+	for (int8_t b = 0; b < BOXES; b++) {   //thomas changed this from 6 to 2, so its only scanning the first few analog inputs.  the leonardo might have a damaged analog pin?? pin 6 was freaking out for some reason
 	//	for (uint8_t b = 7; b < 8; b++) {
 		// Ensure enough time has passed between hits.
 		if ((currentTime - piezoLastHit[b]) < waitBetweenHits) continue;
