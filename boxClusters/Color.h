@@ -6,8 +6,8 @@
 #ifndef randf
 #define randf()    (random(0xffffff) * (1.0f / 0xffffff))
 #endif
-
-// Stations should be arranged in this order (as viewed from inside the arc, facing out):
+//For TX: need to speed up animations to account for added LEDs per unit. 
+// From PWLF: Stations should be arranged in this order (as viewed from inside the arc, facing out):
 //
 //              6,7
 //             -----
