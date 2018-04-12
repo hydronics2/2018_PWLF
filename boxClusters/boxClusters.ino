@@ -33,9 +33,9 @@
 //#define ATTRACTOR_FADE_OUT_TIME       (1.6f)
 //#define ATTRACTOR_HIDE_TIME           (4.5f)
 //#define ATTRACTOR_FADE_IN_TIME        (3.5f)
-#define ATTRACTOR_FADE_OUT_TIME       (0.3f)
-#define ATTRACTOR_HIDE_TIME           (0.3f)  // ?? I tried modifying these values and it didn't appear to change animation speeds
-#define ATTRACTOR_FADE_IN_TIME        (0.7f)
+#define ATTRACTOR_FADE_OUT_TIME       (0.3f) // how quickly the animation fades out after being triggered
+#define ATTRACTOR_HIDE_TIME           (0.3f)  // amount of time the animation waits before coming back in ?? 
+#define ATTRACTOR_FADE_IN_TIME        (0.7f)  //how long it takes to fade back in.  Speed of animations are controlled in color.h
 
 //uint16_t ledArray[]={0,15,30,45,60,75,90,105};  // PWLF boxes
 uint16_t ledArray[]={0,62,122,182,242,302,362,431};  //for TX final designed board: this specifies the number of LEDs in each strip.
@@ -47,7 +47,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(ledArray[BOXES], PIN, NEO_GRB + NEO_
 // this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
 int box[CLUSTERS][BOXES] = {
   {0,1,2,3,6,7,8}, //cluster 0  ground out pin 9, just to keep code logic straight
-  {0,1,2,3,6,7,8},  //cluster 1  //only 4 boards used in the TX version.  will ground out pin 9 ??
+  {2,1,0,9,8,7,6},  //cluster 1  //only 4 boards used in the TX version.  will ground out pin 9 ??
   {0,1,2,3,6,7,8},  //cluster 2
   {0,1,2,3,6,7,8},  //cluster 3
   {0,1,2,3,6,7,8},  //cluster 4
