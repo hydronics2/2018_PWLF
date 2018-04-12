@@ -1,3 +1,9 @@
+//TX version: 7 sensors per board, 4 boards controlling 28 keys, sending serial to WAV trigger.  All unused piezo inputs grounded out.  
+//Need to understand how to speed up and slow down animations, as well as how to modify code to work with the 7 sensors and to create a seamless animation.
+//(right now, when you tap one, it has a ripple effect that makes the boxes next to it light up temporarily.  This does not appear to be seamless between the boards.
+//I have left ?? comments next to the lines I have been working on.
+
+
 // MODIFY THIS when flashing Arduinos:
 #define boxClusterNumber (1)
 
@@ -28,14 +34,11 @@
 //#define ATTRACTOR_HIDE_TIME           (4.5f)
 //#define ATTRACTOR_FADE_IN_TIME        (3.5f)
 #define ATTRACTOR_FADE_OUT_TIME       (0.3f)
-#define ATTRACTOR_HIDE_TIME           (0.3f)
+#define ATTRACTOR_HIDE_TIME           (0.3f)  // ?? I tried modifying these values and it didn't appear to change animation speeds
 #define ATTRACTOR_FADE_IN_TIME        (0.7f)
 
-//uint16_t ledArray[]={0,15,30,45,60,75,90,105};  //this specifies the number of LEDs in each box, or does it??
-//uint16_t ledArray[]={0,65,130,195,260,325,390,455};  //from test board: this specifies the number of LEDs in each strip.
-//uint16_t ledArray[]={0,61,121,181,245,307,369,431};  //for final designed board: this specifies the number of LEDs in each strip.
-uint16_t ledArray[]={0,62,123,185,247,309,371,433};  //for final designed board: this specifies the number of LEDs in each strip.
-//uint16_t ledArray[]={0,62,125,188,251,314,377,440};  //for final designed board: this specifies the number of LEDs in each strip.
+//uint16_t ledArray[]={0,15,30,45,60,75,90,105};  // PWLF boxes
+uint16_t ledArray[]={0,62,122,182,242,302,362,431};  //for TX final designed board: this specifies the number of LEDs in each strip.
 //uint16_t ledArray[]={0,1,2,3,4,5,6,7};  //test board: this specifies the number of LEDs in each strip.
 
 // LED strip length: Match the number of LEDs specified in ledArray[]..
@@ -44,23 +47,23 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(ledArray[BOXES], PIN, NEO_GRB + NEO_
 // this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
 int box[CLUSTERS][BOXES] = {
   {0,1,2,3,6,7,8}, //cluster 0  ground out pin 9, just to keep code logic straight
-  {0,1,2,3,6,7,8},  //cluster 1
+  {0,1,2,3,6,7,8},  //cluster 1  //only 4 boards used in the TX version.  will ground out pin 9 ??
   {0,1,2,3,6,7,8},  //cluster 2
   {0,1,2,3,6,7,8},  //cluster 3
-	{0,1,2,3,6,7,8},  //cluster 4
-  {0,1,2,3,6,7,8},  //cluster 5
+  {0,1,2,3,6,7,8},  //cluster 4
+  {0,1,2,3,6,7,8},  //cluster 5  //should I comment out the unused boards/hit values/etc.?  or just leave it be.. ??
   {0,1,2,3,6,7,8},  //cluster 6
-	{0,1,2,3,6,7,8},  //cluster 7
+  {0,1,2,3,6,7,8},  //cluster 7
   {0,1,2,3,6,7,8},  //cluster 8
   {0,1,2,3,6,7,8},  //cluster 9
-	{0,1,2,3,6,7,8},  //cluster 10
+  {0,1,2,3,6,7,8},  //cluster 10
   {0,1,2,3,6,7,8}   //cluster 11
 };
 
 // Default hit thresholds
 #define HT0     ( 70)
 #define HT1     ( 70)
-#define HT2     ( 70)
+#define HT2     ( 70) 
 #define HT3     ( 70)
 #define HT4     ( 70)
 #define HT5     ( 70)
