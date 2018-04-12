@@ -1,9 +1,11 @@
 
 /*
-TEENSY: Set USB type to Serial
+changed from teensy to lenoardo: https://www.arduino.cc/en/Tutorial/MidiDevice
 */
 
 #include "PitchToNote.h"
+
+#include "MIDIUSB.h" //for lenoardo
 
 #define BAUD_RATE  (115200)
 
@@ -63,7 +65,18 @@ void loop() {
     Serial.println(pixelNumber);
     Serial.println(pitch);
 
-    usbMIDI.sendNoteOn(pitch, 99, 1);  // 60 = C4
+// First parameter is the event type (0x09 = note on, 0x08 = note off).
+// Second parameter is note-on/note-off, combined with the channel.
+// Channel can be anything between 0-15. Typically reported to the user as 1-16.
+// Third parameter is the note number (48 = middle C).
+// Fourth parameter is the velocity (64 = normal, 127 = fastest).
+
+
+  midiEventPacket_t noteOn = {0x09, 0x90 | 0, pitch, 99}; //added for lenoardo
+  MidiUSB.sendMIDI(noteOn); //added for leonardo
+  MidiUSB.flush();
+
+    //usbMIDI.sendNoteOn(pitch, 99, 1);  //for teensy
 
    // reset things for the next lot.
    newInput = false;
@@ -79,6 +92,7 @@ void serialEvent ()  // build the input string.
  while (Serial1.available() ) //read from hardware serial
  {
    char readChar = Serial1.read ();
+   Serial.println(readChar);
    if (readChar == lineEnding)
    {
      newInput = true;

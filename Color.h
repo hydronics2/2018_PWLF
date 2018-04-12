@@ -212,7 +212,7 @@ void boxColorWasHit(uint8_t cluster, uint8_t box) {
 void boxColorsWillUpdate(uint8_t cluster, float elapsed, float attractor) {
 	if (isClusterDrums(cluster)) {
 
-		const float DECAY = 0.003f;
+		const float DECAY = 0.05f; //.003f
 
 		for (uint8_t c = 0; c < 8; c++) {
 			cells[c].v = max(0.0f, cells[c].v - DECAY);

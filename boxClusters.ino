@@ -17,7 +17,9 @@
 #include "Color.h"
 
 #define PIN 2
+//#define BAUD_RATE     (460800)
 #define BAUD_RATE     (115200)
+
 
 // DEBUG_SERIAL and the rest must be __false__ for production!
 #define DEBUG_SERIAL      (false)
@@ -26,62 +28,74 @@
 
 #define randf()    (random(0xffffff) * (1.0f / 0xffffff))
 
-#define ATTRACTOR_FADE_OUT_TIME       (1.6f)
-#define ATTRACTOR_HIDE_TIME           (4.5f)
-#define ATTRACTOR_FADE_IN_TIME        (3.5f)
+//#define ATTRACTOR_FADE_OUT_TIME       (1.6f)
+//#define ATTRACTOR_HIDE_TIME           (4.5f)
+//#define ATTRACTOR_FADE_IN_TIME        (3.5f)
+#define ATTRACTOR_FADE_OUT_TIME       (0.3f)
+#define ATTRACTOR_HIDE_TIME           (0.3f)
+#define ATTRACTOR_FADE_IN_TIME        (0.7f)
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_RBG + NEO_KHZ800);
+//Adafruit_NeoPixel strip = Adafruit_NeoPixel(120, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(434, PIN, NEO_GRB + NEO_KHZ800); //was 521 for test board strips
+//Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, PIN, NEO_GRB + NEO_KHZ800); //was 521 for test board strips
 
-int box[][12] = {      //this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
-	{3,0,7,9,6,8,2,1}, //box 0
-	{1,0,2,8,9,7,3,6},  //box 1
-
-	{9,7,1,0,2,8,6,3},  //box 2
-	{9,1,0,2,8,7,3,6},  //box 3
-
-	{0,9,2,1,8,3,7,6},  //box 4
-	{6,7,8,2,3,9,1,0},  //box 5
-
-  {3,0,7,1,2,6,8,9},   //box 6
-  {1,2,9,3,8,0,6,7},   //box 7
-
-  {7,9,3,1,8,0,2,6},   //box 8
-  {2,3,1,6,9,7,0,8},   //box 9
-
-  {8,7,2,3,6,1,9,0},   //box 10
-  {9,6,7,1,3,0,2,8},   //box 11
+int box[][12] = {      // why is this 12?  this fixes all the piezo locations for each box. They were randomly connected and have to be asigned to the correct box
+	//{3,0,7,9,6,8,2,1}, //box 0
+//  {0,1,2,3,6,7,8,9}, //box 0
+//	{0,1,2,3,6,7,8,9},  //box 1
+//	{0,1,2,3,6,7,8,9},  //box 2
+//	{0,1,2,3,6,7,8,9},  //box 3
+  {0,1,2,3,6,7,8,9}, //box 0  ground out pin 9, just to keep code logic straight
+  {0,1,2,3,6,7,8,9},  //box 1
+  {0,1,2,3,6,7,8,9},  //box 2
+  {0,1,2,3,6,7,8,9},  //box 3	
+	//{0,1,2,3,6,7,8,9},   //box 4
+  //{0,1,2,3,6,7,8,9},   //box 5
+  //{3,0,7,1,2,6,8,9},   //box 6
+  //{0,1,2,3,6,7,8,9},   //box 7
+  //{1,0,7,9,6,8,2,3},    //box 8
+  //{0,1,2,3,6,7,8,9},    //box 9
+  //{1,0,7,9,6,8,2,3},    //box 10
+  //{0,1,2,3,6,7,8,9},    //box 11
 };
 
 // Default hit thresholds
-#define HT0     ( 30)
-#define HT1     ( 50)
-#define HT2     ( 30)
-#define HT3     ( 30)
-#define HT4     ( 30)
-#define HT5     ( 30)
-#define HT6     ( 42)
-#define HT7     ( 30)
-#define HT8     ( 30)
-#define HT9     ( 30)
-#define HT10    ( 30)
-#define HT11    ( 30)
+#define HT0     ( 70)
+#define HT1     ( 70)
+#define HT2     ( 70)
+#define HT3     ( 70)
+#define HT4     ( 70)
+#define HT5     ( 70)
+#define HT6     ( 70)
+#define HT7     ( 70)
+#define HT8     ( 70)
+#define HT9     ( 70)
+#define HT10    ( 70)
+#define HT11    ( 70)
 
 int hitThreshold[][12] = {      //calibration if needed.. default was 20
 	{ HT0, HT0, HT0, HT0, HT0, HT0, HT0, HT0}, //box 0
-	{ HT1, HT1, HT1, 100, 100, HT1, HT1, HT1},  //box 1
-	{ HT2, HT2, HT2, HT2, HT2, 100, 100, 100},  //box 2  - boxes 5,6,7 were extra sensative...
+	{ HT1, HT1, HT1, HT1, HT1, HT1, HT1, HT1},  //box 1
+	{ HT2, HT2, HT2, HT2, HT2, HT2, HT2, HT2},  //box 2  - boxes 5,6,7 were extra sensative...
 	{ HT3, HT3, HT3, HT3, HT3, HT3, HT3, HT3},  //box 3
-	{ HT4, HT4, HT4,  90, HT4, HT4, HT4, HT4},  //box 4
-	{  60, HT5, HT5, HT5, HT5, HT5, HT5, HT5},  //box 5
-	{ HT6, HT6, HT6, 200, 300, HT6, 100, HT6},  //box 6
+	{ HT4, HT4, HT4,  HT4, HT4, HT4, HT4, HT4},  //box 4
+	{  HT5, HT5, HT5, HT5, HT5, HT5, HT5, HT5},  //box 5
+	{ HT6, HT6, HT6, HT6, HT6, HT6, HT6, HT6},  //box 6
 	{ HT7, HT7, HT7, HT7, HT7, HT7, HT7, HT7},  //box 7
-	{ HT8, HT8, HT8, HT8, 200, 200, HT8, HT8},  //box 8
-	{ HT9, HT9, HT9,  50, HT9, HT9, HT9, HT9},  //box 9
-	{ 170,HT10, 100,  70, 250,  40,  70,HT10},  //box 10
-	{HT11,HT11,HT11,HT11,HT11, 100,  50, 100}  //box 11
+	{ HT8, HT8, HT8, HT8, HT8, HT8, HT8, HT8},  //box 8
+	{ HT9, HT9, HT9,HT9, HT9, HT9, HT9, HT9},  //box 9
+	{ HT10,HT10,HT10,HT10,HT10,HT10,HT10,HT10},  //box 10
+	{HT11,HT11,HT11,HT11,HT11,HT11,HT11,HT11}  //box 11
 };
 
-uint16_t ledArray[]={0,2,4,6,8,10,12,14};
+//uint16_t ledArray[]={0,15,30,45,60,75,90,105};  //this specifies the number of LEDs in each box, or does it?? 
+//uint16_t ledArray[]={0,65,130,195,260,325,390,455};  //from test board: this specifies the number of LEDs in each strip.  
+//uint16_t ledArray[]={0,61,121,181,245,307,369,431};  //for final designed board: this specifies the number of LEDs in each strip.  
+uint16_t ledArray[]={0,62,123,185,247,309,371,433};  //for final designed board: this specifies the number of LEDs in each strip.  
+
+//uint16_t ledArray[]={0,62,125,188,251,314,377,440};  //for final designed board: this specifies the number of LEDs in each strip.  
+
+//uint16_t ledArray[]={0,1,2,3,4,5,6,7};  //test board: this specifies the number of LEDs in each strip.  
 
 int sensorValue = 0;        // value read from the pot
 
@@ -148,9 +162,29 @@ void loop() {
 
 		RGB8 rgb8 = rgbToRGB8(rgb);
 
-		uint16_t stripNum = ledArray[box];
-		strip.setPixelColor(stripNum, rgb8.r, rgb8.g, rgb8.b);
-		strip.setPixelColor(stripNum + 1, rgb8.r, rgb8.g, rgb8.b);
+		//uint16_t stripNum = ledArray[box];
+    //for (uint16_t stripIncrementer = 0; stripIncrementer < 65; stripIncrementer++){
+		//strip.setPixelColor(stripIncrementer, rgb8.r, rgb8.g, rgb8.b); }
+ //    strip.setPixelColor(stripNum, rgb8.r, rgb8.g, rgb8.b);
+ //		strip.setPixelColor(stripNum + 1, rgb8.r, rgb8.g, rgb8.b);
+ //   strip.setPixelColor(stripNum + 2, rgb8.r, rgb8.g, rgb8.b);
+ //   strip.setPixelColor(stripNum + 3, rgb8.r, rgb8.g, rgb8.b);
+ //   strip.setPixelColor(stripNum + 4, rgb8.r, rgb8.g, rgb8.b);
+ //   strip.setPixelColor(stripNum + 5, rgb8.r, rgb8.g, rgb8.b);
+ //   strip.setPixelColor(stripNum + 6, rgb8.r, rgb8.g, rgb8.b);
+ //   strip.setPixelColor(stripNum + 7, rgb8.r, rgb8.g, rgb8.b);
+ //   strip.setPixelColor(stripNum + 8, rgb8.r, rgb8.g, rgb8.b);
+ //   strip.setPixelColor(stripNum + 9, rgb8.r, rgb8.g, rgb8.b);
+ 
+uint16_t stripNum = ledArray[box];
+int stripLast = ledArray[box+1]; // this enabled the 2nd light strip.  Repeat increment for each lightbox strip.
+    for(int i = stripNum; i<stripLast; i++)
+    {
+      strip.setPixelColor(i, rgb8.r, rgb8.g, rgb8.b);
+    }
+    //strip.setPixelColor(stripNum, rgb8.r, rgb8.g, rgb8.b);
+    //strip.setPixelColor(stripNum + 1, rgb8.r, rgb8.g, rgb8.b);
+ 
 
 		// Decay brightness
 		brights[box] = max(0.0f, brights[box] - (1.0f / 2000.0f));
@@ -166,12 +200,14 @@ void loop() {
 	// Read values for each piezo sensor
 	int hitValues[8] = {0};
 	int8_t bestBox = -1;
-
-	for (uint8_t b = 0; b < 8; b++) {
+//3,0,7,9,6,8,2,1
+	for (uint8_t b = 0; b < 8; b++) {   //thomas changed this from 6 to 2, so its only scanning the first few analog inputs.  the leonardo might have a damaged analog pin?? pin 6 was freaking out for some reason      
+	//	for (uint8_t b = 7; b < 8; b++) { 
 		// Ensure enough time has passed between hits.
 		if ((currentTime - piezoLastHit[b]) < waitBetweenHits) continue;
 
 		hitValues[b] = analogRead(box[boxClusterNumber][b]);
+    //delay(500);
 
 		if (DEBUG_HIT_VALUES && (hitValues[b] >= 20)) {
 			Serial.print(b);
@@ -194,6 +230,7 @@ void loop() {
 	}
 
 	if (bestBox >= 0) {
+  Serial.println(bestBox);
 		processHit(bestBox, hitValues[bestBox]);
 	}
 
