@@ -1,5 +1,14 @@
 # 2018_PWLF
 
+We released this at Portland Winter Light Festival in early 2018 and then in Pickathon a few months later. So much fun!
+
+
+
+
+
+
+
+
 RS485 between box Clusters. Teensy reads RS485 from box clusters and ouputs midi to Ableton Live.
 
 Box Clusters 0 & 1 are sending midi notes 0-15 <br>
