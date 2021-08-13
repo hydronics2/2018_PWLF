@@ -2,7 +2,9 @@
 
 We released this at Portland Winter Light Festival in early 2018 and then in Pickathon a few months later. So much fun!
 
+[![Foo](https://github.com/hydronics2/2018_PWLF/blob/master/pickathon.png)](https://www.instagram.com/p/BmHEpsdhlIe/?utm_source=ig_web_copy_link)
 
+credit a lot of the beautiful LED changing code to Zach Archer.. https://zacharcher.com/
 
 
 
